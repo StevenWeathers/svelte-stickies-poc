@@ -149,7 +149,7 @@
 <div class="h-screen">
 	<NavMenu />
 
-	<section class="flex items-stretch min-h-full" style="overflow-x: scroll">
+	<section id="StickyNotesApp" class="flex items-stretch min-h-full" style="overflow-x: scroll">
 		{#each notesColumns as noteColumn, index}
 			<div class="flex-no-shrink m-3" style="width: 320px" on:dragover={handleDragOver} on:drop={handleDrop(index)} data-droppable="true">
 				<button on:click={addNote(index)} class="w-full font-bold text-3xl text-grey bg-grey-lightest p-1">
