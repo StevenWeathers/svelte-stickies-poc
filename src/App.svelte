@@ -49,6 +49,7 @@
 			color: defaultColor,
 			title: "Note Title Here",
 			content: `Note Content Here ${id}`,
+			contentHeight: null,
 		}
 	}
 
@@ -104,17 +105,41 @@
 
 	const handleDragOver = ev => {
 		if (ev.preventDefault) {
-			ev.preventDefault(); // Necessary. Allows us to drop.
+			ev.preventDefault() // Necessary. Allows us to drop.
 		}
 
 		if (ev.target.dataset.droppable != "true")
-			ev.dataTransfer.dropEffect = "none"; // dropping is not allowed
+			ev.dataTransfer.dropEffect = "none" // dropping is not allowed
 		else
-			ev.dataTransfer.dropEffect = "move"; // drop it like it's hot
+			ev.dataTransfer.dropEffect = "move" // drop it like it's hot
 
 		if (ev.target.id) {
 			dragging.order = ev.target.dataset.index
 		}
+	}
+
+	const detectElementMouseEnlargement = (column, index) => ev => {
+		const element = ev.target
+		const size = { height: element.clientHeight }
+		let styleHeight = parseFloat(getComputedStyle(element)['height'].replace('px', ''))
+		
+		const mouseMoveListener = event => {
+			if (element.clientHeight != size.height) {
+				let style = getComputedStyle(element)
+				styleHeight = parseFloat(style['height'].replace('px', ''))
+				
+				size.height = element.clientHeight
+			}
+		}
+		
+		const mouseUpListener = event => {
+			window.removeEventListener("mousemove", mouseMoveListener)
+			window.removeEventListener("mouseup", mouseUpListener)
+			notesColumns[column].notes[index].contentHeight = styleHeight
+		}
+		
+		window.addEventListener("mousemove", mouseMoveListener)
+		window.addEventListener("mouseup", mouseUpListener)
 	}
 </script>
 
@@ -124,9 +149,9 @@
 <div class="h-screen">
 	<NavMenu />
 
-	<section class="flex items-stretch min-h-full" style="overflow-x: scroll;">
+	<section class="flex items-stretch min-h-full" style="overflow-x: scroll">
 		{#each notesColumns as noteColumn, index}
-			<div class="flex-no-shrink m-3" style="width: 320px;" on:dragover={handleDragOver} on:drop={handleDrop(index)} data-droppable="true">
+			<div class="flex-no-shrink m-3" style="width: 320px" on:dragover={handleDragOver} on:drop={handleDrop(index)} data-droppable="true">
 				<button on:click={addNote(index)} class="w-full font-bold text-3xl text-grey bg-grey-lightest p-1">
 					+
 				</button>
@@ -155,7 +180,7 @@
 									{/if}
 								</div>
 							</div>
-							<textarea class="w-full h-full bg-transparent" rows="5" on:change={noteContentEdit(index, i, "content")} readonly="readonly" on:dblclick={makeEditable}>{note.content}</textarea>
+							<textarea style="height: {note.contentHeight ? `${note.contentHeight}px` : 'auto'}" on:mousedown={detectElementMouseEnlargement(index, i)} class="w-full h-full bg-transparent" rows="5" on:change={noteContentEdit(index, i, "content")} readonly="readonly" on:dblclick={makeEditable}>{note.content}</textarea>
 						</div>
 					</div>
 				{/each}
