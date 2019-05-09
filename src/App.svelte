@@ -38,9 +38,12 @@
 	}
 
 	// event handlers
+	const makeEditable = ev => {
+		ev.target.removeAttribute('readonly')
+	}
 	const addNote = (index) => () => {
 		const id = guid()
-		
+
 		notesColumns[index].notes[notesColumns[index].notes.length] = {
 			id,
 			color: defaultColor,
@@ -68,6 +71,7 @@
 
 	const noteContentEdit = (column, index, type) => event => {
 		notesColumns[column].notes[index][type] = event.target.value
+		event.target.setAttribute('readonly', true)
 	}
 
 	const startDrag = (
@@ -136,7 +140,7 @@
 									</button>
 								</div>
 								<div class="w-2/4">
-									<input type="text" value="{note.title}" on:change={noteContentEdit(index, i, "title")} class="inline font-bold text-xl bg-transparent" />
+									<input readonly="readonly" type="text" value="{note.title}" on:dblclick={makeEditable} on:change={noteContentEdit(index, i, "title")} class="inline font-bold text-xl bg-transparent" />
 								</div>
 								<div class="w-1/4 text-right">
 									<button on:click={showChangeColor(note.id)}>
@@ -151,7 +155,7 @@
 									{/if}
 								</div>
 							</div>
-							<textarea class="w-full h-full bg-transparent" rows="5" on:change={noteContentEdit(index, i, "content")}>{note.content}</textarea>
+							<textarea class="w-full h-full bg-transparent" rows="5" on:change={noteContentEdit(index, i, "content")} readonly="readonly" on:dblclick={makeEditable}>{note.content}</textarea>
 						</div>
 					</div>
 				{/each}
