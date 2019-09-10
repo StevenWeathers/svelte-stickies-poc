@@ -56,7 +56,7 @@
   };
 
   const deleteNote = (column, index) => () => {
-    notesColumns[column].notes.splice(notesColumns[column].notes[index], 1);
+    notesColumns[column].notes.splice(index, 1);
     notesColumns = notesColumns;
 
     sendChanges()
