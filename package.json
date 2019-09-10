@@ -21,17 +21,20 @@
     "rollup-plugin-node-resolve": "^4.2.3",
     "rollup-plugin-svelte": "^5.0.3",
     "rollup-plugin-terser": "^4.0.4",
-    "sirv-cli": "^0.4.0",
     "svelte": "^3.0.0"
   },
   "scripts": {
     "build": "rollup -c",
     "autobuild": "rollup -c -w",
     "dev": "run-p start:dev autobuild",
-    "start": "sirv public",
-    "start:dev": "sirv public --dev"
+    "start": "node server/index.js",
+    "start:dev": "node server/index.js"
   },
   "dependencies": {
-    "dragula": "^3.7.2"
+    "@hapi/hapi": "^18.3.2",
+    "@hapi/inert": "^5.2.1",
+    "@hapi/nes": "^11.2.1",
+    "dragula": "^3.7.2",
+    "uuid": "^3.3.3"
   }
 }

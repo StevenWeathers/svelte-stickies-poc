@@ -1,11 +1,16 @@
 <script>
+  import Nes from '@hapi/nes/lib/client';
   import dragula from "dragula";
+  import { onMount } from 'svelte';
 
   import guid from "./generateGuid.js";
 
   import NavMenu from "./components/NavMenu.svelte";
   import TimesIcon from "./components/TimesIcon.svelte";
   import DropperIcon from "./components/DropperIcon.svelte";
+
+  const protocol = window.location.protocol.indexOf('https') === -1 ? 'ws' : 'wss';
+  const client = new Nes.Client(`${protocol}://${window.location.host}`);
 
   const cardColors = [
     "red",
@@ -28,13 +33,10 @@
     }
   });
 
+  let connected = false
+
   // All the Stateful things...
-  let notesColumns = [
-    {
-      id: guid(),
-      notes: []
-    }
-  ];
+  let notesColumns = [];
 
   let changeColor = "";
 
@@ -49,11 +51,15 @@
       content: `Note Content Here ${id}`,
       contentHeight: null
     };
+
+    sendChanges()
   };
 
   const deleteNote = (column, index) => () => {
     notesColumns[column].notes.splice(notesColumns[column].notes[index], 1);
     notesColumns = notesColumns;
+
+    sendChanges()
   };
 
   const addNoteColumn = () => {
@@ -61,6 +67,8 @@
       id: guid(),
       notes: []
     };
+
+    sendChanges()
   };
 
   const showChangeColor = id => () => (changeColor = id);
@@ -68,10 +76,14 @@
   const changeNoteColor = (column, index, color) => () => {
     notesColumns[column].notes[index].color = color;
     changeColor = "";
+
+    sendChanges()
   };
 
   const noteContentEdit = (column, index, type) => event => {
     notesColumns[column].notes[index][type] = event.target.value;
+
+    sendChanges()
   };
 
   drake.on("drop", function(el, target, source, sibling) {
@@ -97,6 +109,8 @@
 
     // finally update state
     notesColumns = notesColumns;
+
+    sendChanges()
   });
 
   // catch and update textarea adjusted size in data
@@ -120,11 +134,43 @@
       window.removeEventListener("mousemove", mouseMoveListener);
       window.removeEventListener("mouseup", mouseUpListener);
       notesColumns[column].notes[index].contentHeight = styleHeight;
+
+      sendChanges()
     };
 
     window.addEventListener("mousemove", mouseMoveListener);
     window.addEventListener("mouseup", mouseUpListener);
   };
+
+  const sendChanges = () => {
+    client.request({
+      method: "POST",
+      path: `/treasuremap/5`,
+      payload: {
+        treasure: notesColumns
+      }
+    })
+  }
+
+  client.onConnect = async () => {
+    if (connected) { return; }
+    
+    const results = await client.request(`/treasuremap/5`)
+
+    notesColumns = results.payload.treasure
+
+    connected = true; 
+  }
+
+  onMount(async () => {
+    await client.connect();
+
+    const handler = (update, flags) => {
+        notesColumns = update.treasure
+    };
+
+    client.subscribe('/treasuremap/5', handler);
+	})
 </script>
 
 <style>
@@ -158,72 +204,77 @@
 
 <div class="h-screen">
   <NavMenu />
-
-  <section class="flex items-stretch min-h-full" style="overflow-x: scroll">
-    {#each notesColumns as noteColumn, index}
-      <div class="flex-no-shrink m-3" style="width: 320px">
+  {#if connected}
+    <section class="flex items-stretch min-h-full" style="overflow-x: scroll">
+      {#each notesColumns as noteColumn, index}
+        <div class="flex-no-shrink m-3" style="width: 320px">
+          <button
+            on:click={addNote(index)}
+            class="w-full font-bold text-3xl text-grey bg-grey-lightest p-1">
+            +
+          </button>
+          <ul
+            class="drop-column list-reset w-full min-h-full"
+            data-columnid={noteColumn.id}
+            data-columnindex={index}>
+            {#each noteColumn.notes as note, i (note.id)}
+              <li
+                class="max-w-xs shadow bg-{note.color}-lightest border border-{note.color}-lighter
+                mt-5 list-reset"
+                data-index={i}
+                data-noteid={note.id}>
+                <div class="p-3">
+                  <div class="mb-2 relative flex mb-4">
+                    <div class="w-1/4">
+                      <button class="float-left" on:click={deleteNote(index, i)}>
+                        <TimesIcon color={note.color} />
+                      </button>
+                    </div>
+                    <div class="w-2/4">
+                      <input
+                        type="text"
+                        value={note.title}
+                        on:change={noteContentEdit(index, i, 'title')}
+                        class="inline font-bold text-xl bg-transparent" />
+                    </div>
+                    <div class="w-1/4 text-right">
+                      <button on:click={showChangeColor(note.id)}>
+                        <DropperIcon color={note.color} />
+                      </button>
+                      {#if changeColor === note.id}
+                        <div class="shadow border bg-white absolute pin-r">
+                          {#each cardColors as color}
+                            <button
+                              on:click={changeNoteColor(index, i, color)}
+                              class="p-3 hover:bg-{color}-lighter bg-{color}-lightest" />
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                  <textarea
+                    style="height: {note.contentHeight ? `${note.contentHeight}px` : 'auto'}"
+                    on:mousedown={detectElementMouseEnlargement(index, i)}
+                    class="w-full h-full bg-transparent"
+                    rows="5"
+                    on:change={noteContentEdit(index, i, 'content')}>{note.content}</textarea>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/each}
+      <div class="m-3 bg-grey-lightest w-16 self-stretch flex-no-shrink">
         <button
-          on:click={addNote(index)}
-          class="w-full font-bold text-3xl text-grey bg-grey-lightest p-1">
+          on:click={addNoteColumn}
+          class="w-full h-full font-bold text-5xl text-grey">
           +
         </button>
-        <ul
-          class="drop-column list-reset w-full min-h-full"
-          data-columnid={noteColumn.id}
-          data-columnindex={index}>
-          {#each noteColumn.notes as note, i (note.id)}
-            <li
-              class="max-w-xs shadow bg-{note.color}-lightest border border-{note.color}-lighter
-              mt-5 list-reset"
-              data-index={i}
-              data-noteid={note.id}>
-              <div class="p-3">
-                <div class="mb-2 relative flex mb-4">
-                  <div class="w-1/4">
-                    <button class="float-left" on:click={deleteNote(index, i)}>
-                      <TimesIcon color={note.color} />
-                    </button>
-                  </div>
-                  <div class="w-2/4">
-                    <input
-                      type="text"
-                      value={note.title}
-                      on:change={noteContentEdit(index, i, 'title')}
-                      class="inline font-bold text-xl bg-transparent" />
-                  </div>
-                  <div class="w-1/4 text-right">
-                    <button on:click={showChangeColor(note.id)}>
-                      <DropperIcon color={note.color} />
-                    </button>
-                    {#if changeColor === note.id}
-                      <div class="shadow border bg-white absolute pin-r">
-                        {#each cardColors as color}
-                          <button
-                            on:click={changeNoteColor(index, i, color)}
-                            class="p-3 hover:bg-{color}-lighter bg-{color}-lightest" />
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                </div>
-                <textarea
-                  style="height: {note.contentHeight ? `${note.contentHeight}px` : 'auto'}"
-                  on:mousedown={detectElementMouseEnlargement(index, i)}
-                  class="w-full h-full bg-transparent"
-                  rows="5"
-                  on:change={noteContentEdit(index, i, 'content')}>{note.content}</textarea>
-              </div>
-            </li>
-          {/each}
-        </ul>
       </div>
-    {/each}
-    <div class="m-3 bg-grey-lightest w-16 self-stretch flex-no-shrink">
-      <button
-        on:click={addNoteColumn}
-        class="w-full h-full font-bold text-5xl text-grey">
-        +
-      </button>
+    </section>
+  {:else}
+    <div class="pt-5 text-5xl font-bold text-green text-center">
+      <h2>Connecting...</h2>
     </div>
-  </section>
+  {/if}
 </div>
